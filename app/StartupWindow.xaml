@@ -1,0 +1,11 @@
+<Window x:Class="Seam.StartupWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seam — starting" Style="{StaticResource {x:Type Window}}" Width="380" Height="218" WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" ShowActivated="False" WindowStartupLocation="CenterScreen" UseLayoutRounding="True" AutomationProperties.AutomationId="StartupScreen">
+  <Border Background="{StaticResource Panel}" BorderBrush="#3B465C" BorderThickness="1" Padding="31,27">
+    <StackPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,22"><Image Source="{StaticResource SeamIcon}" Width="34" Height="34" Margin="0,0,10,0"/><TextBlock Text="seam" FontSize="27" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
+      <TextBlock Text="Preparing your workspace…" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,16"/>
+      <ProgressBar IsIndeterminate="True" Height="3" BorderThickness="0" Background="#2C3444" Foreground="{StaticResource AccentFill}" AutomationProperties.Name="Starting Seam"/>
+      <TextBlock Text="GTA V MAP MERGER" Foreground="{StaticResource Subtle}" FontSize="9" Margin="0,17,0,0"/>
+    </StackPanel>
+  </Border>
+</Window>

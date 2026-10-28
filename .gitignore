@@ -1,0 +1,24 @@
+app/bin/
+app/obj/
+tests/bin/
+tests/obj/
+artifacts/
+dist/
+/Seam.exe
+exports/
+vendor/
+.checks/
+*.user
+*.suo
+*.log
+*.seam
+*.seamclothes
+# This repository contains the Windows app only.
+web/
+*Website*
+.env
+.env.*
+.cloudflared/
+*.pem
+*.pfx
+*.p12
