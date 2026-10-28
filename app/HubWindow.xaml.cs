@@ -15,6 +15,7 @@ namespace Seam
         }
         private void Map_Click(object sender,RoutedEventArgs e) => ((App)Application.Current).OpenMapMerger();
         private void Clothing_Click(object sender,RoutedEventArgs e) => ((App)Application.Current).OpenClothingStudio();
+        private void GameInstallation_Click(object sender,RoutedEventArgs e) => GameSetupWindow.Configure(this);
         protected override void OnClosing(CancelEventArgs e)
         {
             if (!((App)Application.Current).CloseTools()) e.Cancel=true;

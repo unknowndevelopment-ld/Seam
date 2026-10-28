@@ -219,17 +219,17 @@ namespace Seam
             finally { if (File.Exists(temp)) File.Delete(temp); }
         }
 
-        public static MergeWorkspace LoadProject(string path, Action<string> progress = null)
+        public static MergeWorkspace LoadProject(string path, Action<string> progress = null, bool buildPreview = true)
         {
             if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException("Project exceeds the 16 MB limit.");
             var data = Json().Deserialize<ProjectFile>(File.ReadAllText(path));
             if (data?.Version != 1 || data.Packs == null) throw new InvalidDataException("Unsupported or invalid Seam project.");
-            var result = new MergeWorkspace();
+            var result = new MergeWorkspace { BuildPreview = buildPreview };
             foreach (var stored in data.Packs)
             {
                 if (stored.Assets == null || stored.Assets.Length == 0) continue;
                 // Rebuild each logical pack independently; stream subdirectories must not become extra packs.
-                var snapshot = new MergeWorkspace(); snapshot.Import(stored.Assets.Select(a => a.Path).ToArray(), progress);
+                var snapshot = new MergeWorkspace { BuildPreview = buildPreview }; snapshot.Import(stored.Assets.Select(a => a.Path).ToArray(), progress);
                 var imported = new MapPack { Id = StableId("pack:" + stored.Root), Name = stored.Name, Root = stored.Root, Enabled = stored.Enabled, Color = Regex.IsMatch(stored.Color ?? "", "^#[0-9a-fA-F]{6}$") ? stored.Color : Colors[result.Packs.Count % Colors.Length] };
                 imported.Assets.AddRange(snapshot.Packs.SelectMany(p => p.Assets));
                 result.Packs.Add(imported);

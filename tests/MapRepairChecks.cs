@@ -62,6 +62,9 @@ internal static class MapRepairChecks
         check((Read(plan.Outputs.Single(o=>o.Name=="repair_duplicate.ymap").Data).AllEntities?.Length??0)==0,"identical unlinked prop is removed across static placement maps");
         check(plan.Operations.Any(o=>o.Kind=="Check placement"),"triangle support scan reports potentially floating props");
         check(plan.MapRepairs>0 && plan.MapChecks>0,"automatic fixes and uncertain checks are reported separately");
+        var noPreview = new MergeWorkspace { BuildPreview = false }; noPreview.Import(roots); var noPreviewPlan = noPreview.AutoMergeResources();
+        check(noPreview.Scene.Count == 0 && noPreviewPlan.MapRepairs == plan.MapRepairs && noPreviewPlan.MapChecks == plan.MapChecks, "verified map fixes and floating-prop checks work without 3D previews");
+        check(plan.Outputs.Where(o => o.Data != null).All(o => noPreviewPlan.Outputs.Any(n => n.Name == o.Name && n.Data != null && n.Data.SequenceEqual(o.Data))), "map and light repair bytes are identical with previews disabled");
         check(before.All(p=>File.ReadAllBytes(p.Key).SequenceEqual(p.Value)),"repair pass leaves every original source file unchanged");
         return passed;
     }

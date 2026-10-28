@@ -4,6 +4,8 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System
 [Reflection.Assembly]::LoadFrom([IO.Path]::GetFullPath($Executable)) | Out-Null
 $app = New-Object Seam.App
 $app.InitializeComponent()
+$uiContext = New-Object Windows.Threading.DispatcherSynchronizationContext
+[Threading.SynchronizationContext]::SetSynchronizationContext($uiContext)
 $app.ShutdownMode = [Windows.ShutdownMode]::OnExplicitShutdown
 $window = New-Object Seam.ClothingWindow -ArgumentList $false
 $flags = [Reflection.BindingFlags]'Instance,NonPublic'
@@ -54,6 +56,16 @@ try {
   $layer.X = 4; $layer.Y = 20; $layer.Size = 14; $art.UpdateLayer($layer)
   Invoke-Private 'RefreshLayers'
   Render 'texture-studio.png'
+  $detected = [Seam.ClothingGameAssets]::DetectGameFolder()
+  if ($detected) {
+    [Seam.GameInstallation]::Select($detected)
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while (!$window.FindName('Preview').HasPed -and [DateTime]::UtcNow -lt $deadline) {
+      [Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
+      Start-Sleep -Milliseconds 20
+    }
+  }
+  if ($window.FindName('Preview').HasPed -and [Seam.GameInstallation]::Available) {
   Invoke-Private 'SwitchMode' @('tattoo')
   Invoke-Private 'NewTattoo'
   $tattoo = Field 'selectedTattoo'
@@ -70,11 +82,18 @@ try {
   $colored=0
   for($i=0;$i -lt $pixels.Length;$i+=4){if([int]$pixels[$i]-[int]$pixels[$i+2] -gt 40){$colored++}}
   Assert ($colored -gt 100) 'Tattoo artwork stays visibly rendered after changing canvas size and saving'
+  } else {
+    Assert (!$window.FindName('TattooTab').IsEnabled) 'Tattoo editing stays disabled without a loaded real ped'
+    Write-Host 'SKIP: Live tattoo UI checks require a local GTA V Legacy installation.'
+  }
   $canvas = $art.GetType().GetField('canvas',$flags).GetValue($art)
   Invoke-Private 'SwitchMode' @('wardrobe')
   Invoke-Private 'TextureClicked' @($null,$null)
   Assert ($art.Data.Size -eq 64) 'Switching between tattoo and texture studios restores the active native texture'
   Assert ([IO.File]::Exists($project.Items[0].TexturePaths[0]) -or $project.Items[0].TexturePaths.Count -eq 0) 'Mode transitions keep edited dictionary output available'
+  [Seam.GameInstallation]::Select($null)
+  Assert (!$window.FindName('TattooTab').IsEnabled -and $window.FindName('Preview').Visibility -eq [Windows.Visibility]::Collapsed) 'Removing the installation immediately disables preview and tattoo editing'
+  Assert ($window.FindName('ExportButton').IsEnabled) 'Removing the installation keeps pack creation available'
   $window.GetType().GetField('dirty',$flags).SetValue($window,$false)
   Write-Host 'PASS: Clothing Studio smoke checks'
 } finally {

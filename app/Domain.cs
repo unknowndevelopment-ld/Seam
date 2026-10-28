@@ -118,6 +118,7 @@ namespace Seam
     // Engine API consumed by the desktop shell. First pack has highest priority.
     public sealed partial class MergeWorkspace
     {
+        public bool BuildPreview { get; set; } = true;
         public List<MapPack> Packs { get; } = new List<MapPack>();
         public List<MergeIssue> Issues { get; } = new List<MergeIssue>();
         public List<SceneItem> Scene { get; } = new List<SceneItem>();

@@ -6,7 +6,9 @@ Open `Seam.exe` and choose **Clothing Studio**. **Map Merger** opens the existin
 
 Add extracted native YDD/YDR clothing files or a clothing folder. Matching YTD textures, alternate models and YLD files are associated by filename. Choose the male/female ped, component or prop slot, and local drawable index. Builds reindex each component from zero. Save projects as `.seamclothes`; projects reference original sources and private working copies, so keep those files available.
 
-The preview detects the local GTA V Legacy installation or accepts a selected game folder. It loads the actual male/female MP freemode models and textures, with orbit, pan and zoom. No Rockstar models or textures are bundled with Seam. Preview uses a rest/A-pose, native UVs, diffuse textures and rigid prop bone attachments. It does not simulate GTA's complete shader, animation, cloth-physics or Enhanced rendering pipeline.
+First-run setup asks you to select your GTA V Legacy installation or continue without GTA. The choice is saved; change it later using **GTA installation**. A detected folder is offered only as a suggestion. With no installation selected, the 3D preview and tattoo editor are disabled, while clothing pack creation and 2D texture editing remain available.
+
+With an installation selected, the preview loads actual male/female MP freemode models and textures, with orbit, pan and zoom. Tattoo editing unlocks only after the live ped has loaded successfully. No Rockstar models or textures are bundled with Seam. Preview uses a rest/A-pose, native UVs, diffuse textures and rigid prop bone attachments. It does not simulate GTA's complete shader, animation, cloth-physics or Enhanced rendering pipeline.
 
 ## Live texture editor
 

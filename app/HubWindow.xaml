@@ -34,6 +34,6 @@
         </Border>
       </Grid>
     </Grid>
-    <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Files stay on your PC · no account required" FontSize="11" Foreground="{StaticResource Subtle}"/><TextBlock Grid.Column="1" x:Name="VersionLabel" FontSize="11" Foreground="{StaticResource Subtle}"/></Grid>
+    <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Files stay on your PC · no account required" FontSize="11" Foreground="{StaticResource Subtle}"/><StackPanel Grid.Column="1" Orientation="Horizontal"><Button Content="GTA installation" Style="{StaticResource Quiet}" Click="GameInstallation_Click" Margin="0,0,16,0"/><TextBlock x:Name="VersionLabel" FontSize="11" Foreground="{StaticResource Subtle}" VerticalAlignment="Center"/></StackPanel></Grid>
   </Grid>
 </Window>

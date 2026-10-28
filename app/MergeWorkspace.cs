@@ -187,9 +187,9 @@ namespace Seam
         public void Refresh(Action<string> progress = null)
         {
             LastAutomaticMerge = null;
-            progress?.Invoke("Building the 3D scene…");
+            if (BuildPreview) progress?.Invoke("Building the 3D scene…");
             Notices.Clear(); Notices.AddRange(importNotices.Distinct());
-            Scene.Clear(); Scene.AddRange(GeometryReader.Build(this, progress));
+            Scene.Clear(); if (BuildPreview) Scene.AddRange(GeometryReader.Build(this, progress));
             progress?.Invoke("Checking shared assets and collision bounds…");
             Issues.Clear();
             var all = Packs.Where(p => p.Enabled).SelectMany(p => p.Assets).Where(a => !a.Excluded).ToList();

@@ -39,16 +39,19 @@ namespace Seam
             InitializeComponent(); loadingControls = false;
             Width = Math.Min(1440, Math.Max(MinWidth, SystemParameters.WorkArea.Width - 32));
             Height = Math.Min(900, Math.Max(MinHeight, SystemParameters.WorkArea.Height - 32));
-            Preview.StatusChanged += text => Dispatcher.InvokeAsync(() => { StatusText.Text = text; GameHint.Text = text; if (Preview.HasPed) WelcomePanel.Visibility = Visibility.Collapsed; });
+            Preview.StatusChanged += text => Dispatcher.InvokeAsync(() => { StatusText.Text = text; GameHint.Text = text; UpdateGameAvailability(); });
             Artwork.Changed += () => { if (loadingControls) return; artworkDirty = dirty = true; liveTimer.Stop(); liveTimer.Start(); };
             Artwork.LayerSelected += layer => { LayerList.SelectedItem = layer; RefreshLayerControls(layer); };
             liveTimer.Tick += (s, e) => { liveTimer.Stop(); Safe(UpdateLivePreview); };
             watchTimer.Tick += (s, e) => { watchTimer.Stop(); Safe(() => { if (selectedTexture == null || string.IsNullOrEmpty(watchedImage)) return; ReplaceBitmap(TextureDocument.LoadImage(watchedImage)); SetStatus("External image refreshed · " + Path.GetFileName(watchedImage)); }); };
             SourceInitialized += (s, e) => { try { int dark = 1; DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, 20, ref dark, sizeof(int)); } catch (DllNotFoundException) { } catch (EntryPointNotFoundException) { } };
-            Loaded += async (s, e) => { if (!loadGame) return; gameFolder = ClothingGameAssets.DetectGameFolder(); if (!string.IsNullOrEmpty(gameFolder)) await LoadPed(); else SetStatus("Import clothing to begin. Choose a GTA V folder to load the actual character."); };
+            gameFolder = GameInstallation.SelectedFolder;
+            GameInstallation.Changed += InstallationChanged;
+            Loaded += async (s, e) => { UpdateGameAvailability(); if (loadGame) await LoadPed(); };
             Closing += (s, e) => { if (busy || !ConfirmDiscard()) e.Cancel = true; };
-            Closed += (s, e) => { imageWatcher?.Dispose(); liveTimer.Stop(); watchTimer.Stop(); };
+            Closed += (s, e) => { GameInstallation.Changed -= InstallationChanged; imageWatcher?.Dispose(); liveTimer.Stop(); watchTimer.Stop(); };
             RefreshLibrary();
+            UpdateGameAvailability();
         }
         private void SetStatus(string message) { StatusText.Text = message; }
         private void Safe(Action action) { try { action(); } catch (Exception ex) { ShowError(ex); } }
@@ -64,14 +67,28 @@ namespace Seam
         private string WorkPath(string name) { Directory.CreateDirectory(workDirectory); return Path.Combine(workDirectory, name); }
         private async Task LoadPed()
         {
-            if (string.IsNullOrEmpty(gameFolder)) return;
+            gameFolder = GameInstallation.SelectedFolder;
+            if (string.IsNullOrEmpty(gameFolder)) { UpdateGameAvailability(); return; }
             try { await Preview.SetPedAsync(mode == "tattoo" ? (TattooPedBox.SelectedIndex == 1 ? "female" : "male") : (PedBox.SelectedIndex == 1 ? "female" : "male"), gameFolder); if (selectedItem != null && mode != "tattoo") Preview.ShowItem(selectedItem); }
             catch (Exception ex) { SetStatus("Character preview: " + ex.Message); }
+            UpdateGameAvailability();
         }
-        private async void ChooseGameFolder(object sender, RoutedEventArgs e)
+        private void UpdateGameAvailability()
         {
-            using (var dialog = new Forms.FolderBrowserDialog { Description = "Select your GTA V installation (the folder containing GTA5.exe).", SelectedPath = gameFolder ?? "" })
-                if (dialog.ShowDialog() == Forms.DialogResult.OK) { gameFolder = dialog.SelectedPath; await Run(LoadPed, "Loading freemode character…"); }
+            bool available = GameInstallation.Available;
+            Preview.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            FramePreviewButton.IsEnabled = available && Preview.HasPed;
+            TattooTab.IsEnabled = available && Preview.HasPed;
+            TattooTab.ToolTip = TattooTab.IsEnabled ? "Edit tattoos with the live freemode preview" : "Tattoo editing requires a selected GTA V installation and a loaded live ped preview.";
+            WelcomePanel.Visibility = available && Preview.HasPed ? Visibility.Collapsed : Visibility.Visible;
+            if (!available) GameHint.Text = "3D previews and tattoo editing are disabled. Clothing packs and 2D textures still work. Choose GTA installation to enable previews.";
+            if (mode == "tattoo" && !TattooTab.IsEnabled) SwitchMode("wardrobe");
+        }
+        private async void InstallationChanged(object sender, EventArgs e) { UpdateGameAvailability(); await LoadPed(); }
+        private void ChooseGameFolder(object sender, RoutedEventArgs e)
+        {
+            if (busy) return;
+            GameSetupWindow.Configure(this);
         }
         private void GoHome(object sender, RoutedEventArgs e) { if (busy || !ConfirmDiscard()) return; dirty = false; ((App)Application.Current).ShowLauncher(); Close(); }
         private void ProjectNameChanged(object sender, TextChangedEventArgs e) { if (loadingControls) return; project.Name = ProjectNameBox.Text; dirty = true; }
@@ -85,11 +102,12 @@ namespace Seam
         }
         private void SwitchMode(string next)
         {
+            if (next == "tattoo" && (!GameInstallation.Available || !Preview.HasPed)) { SetStatus("Tattoo editing requires a loaded live GTA V character preview."); return; }
             if (mode == "texture" && next != mode) CommitTextureToWorkingCopy();
             if (mode == "tattoo" && next != mode)
             {
                 if (selectedTattoo != null && artworkDirty) SaveTattoo();
-                Preview.ShowTattoo(null, null, 0, 0, 0, 0, 0); Preview.ShowItem(selectedItem);
+                if (GameInstallation.Available) { Preview.ShowTattoo(null, null, 0, 0, 0, 0, 0); Preview.ShowItem(selectedItem); }
             }
             mode = next;
             ItemList.Visibility = next == "wardrobe" ? Visibility.Visible : Visibility.Collapsed;
@@ -114,6 +132,7 @@ namespace Seam
         private void TextureClicked(object s, RoutedEventArgs e) { Safe(() => { bool entering = mode != "texture"; SwitchMode("texture"); if (textureDocument == null && selectedItem?.TexturePaths.Count > 0) OpenYtd(selectedItem.TexturePaths[0]); else if (entering && selectedTexture != null) ActivateTexture(selectedTexture); }); }
         private async void TattooClicked(object s, RoutedEventArgs e)
         {
+            if (!GameInstallation.Available || !Preview.HasPed) { SetStatus("Choose a GTA V installation and load its character before editing tattoos."); return; }
             if (mode == "tattoo") return;
             Safe(() => { SwitchMode("tattoo"); Preview.ShowItem(null); if (selectedTattoo == null && project.Tattoos.Count == 0) NewTattoo(); else if (selectedTattoo != null) LoadTattoo(selectedTattoo); });
             await LoadPed(); Safe(UpdateLivePreview);
@@ -148,7 +167,7 @@ namespace Seam
             selectedItem = item; loadingControls = true;
             SelectedName.Text = item.Name; SelectedPath.Text = item.SourcePath; PedBox.SelectedIndex = item.Ped == "female" ? 1 : 0; PropBox.IsChecked = item.IsProp; PopulateSlots(item.IsProp, item.Component); DrawableBox.Text = item.DrawableId.ToString(); loadingControls = false;
             int request = ++previewRequest; await LoadPed(); if (request != previewRequest) return;
-            Safe(() => { Preview.ShowItem(item); WelcomePanel.Visibility = Visibility.Collapsed; SetStatus(item.Error ?? "Piece loaded · " + item.Name); });
+            Safe(() => { if (GameInstallation.Available) Preview.ShowItem(item); UpdateGameAvailability(); SetStatus(item.Error ?? "Piece loaded · " + item.Name); });
         }
         private async void AssignmentChanged(object sender, RoutedEventArgs e)
         {
@@ -181,12 +200,12 @@ namespace Seam
         {
             StopWatching(); selectedTexture = texture; artworkDirty = false; loadingControls = true;
             try { Artwork.Reset(TextureDocument.ReadBitmap(texture)); } finally { loadingControls = false; }
-            LayerList.ItemsSource = null; EditingName.Text = texture.Name; Preview.RefreshTexture(texture.Name, TextureDocument.ReadBitmap(texture)); SetStatus(texture.Width + " × " + texture.Height + " · " + texture.Format);
+            LayerList.ItemsSource = null; EditingName.Text = texture.Name; if (GameInstallation.Available) Preview.RefreshTexture(texture.Name, TextureDocument.ReadBitmap(texture)); SetStatus(texture.Width + " × " + texture.Height + " · " + texture.Format);
         }
         private void ReplaceBitmap(BitmapSource bitmap)
         {
             if (selectedTexture == null || textureDocument == null) throw new InvalidOperationException("Select a texture first.");
-            selectedTexture = textureDocument.Replace(selectedTexture, bitmap); loadingControls = true; Artwork.Reset(bitmap); TextureList.ItemsSource = null; TextureList.ItemsSource = textureDocument.Textures; TextureList.SelectedItem = selectedTexture; loadingControls = false; artworkDirty = false; dirty = true; Preview.RefreshTexture(selectedTexture.Name, bitmap); RefreshLibrary();
+            selectedTexture = textureDocument.Replace(selectedTexture, bitmap); loadingControls = true; Artwork.Reset(bitmap); TextureList.ItemsSource = null; TextureList.ItemsSource = textureDocument.Textures; TextureList.SelectedItem = selectedTexture; loadingControls = false; artworkDirty = false; dirty = true; if (GameInstallation.Available) Preview.RefreshTexture(selectedTexture.Name, bitmap); RefreshLibrary();
         }
         private void ReplaceTextureClicked(object sender, RoutedEventArgs e) { Safe(() => { string path = PickImage(); if (path != null) ReplaceBitmap(TextureDocument.LoadImage(path)); }); }
         private string PickImage()
@@ -208,6 +227,7 @@ namespace Seam
         private void ApplyArtworkClicked(object sender, RoutedEventArgs e) { Safe(() => { ApplyArtwork(); UpdateLivePreview(); SetStatus("Artwork applied. Save a YTD copy or build the pack."); }); }
         private void UpdateLivePreview()
         {
+            if (!GameInstallation.Available) return;
             if (mode == "texture" && selectedTexture != null) Preview.RefreshTexture(selectedTexture.Name, Artwork.Render());
             else if (mode == "tattoo" && selectedTattoo != null) Preview.ShowTattoo(Artwork.Render(), selectedTattoo.Zone, selectedTattoo.U, selectedTattoo.V, selectedTattoo.ScaleX, selectedTattoo.ScaleY, selectedTattoo.Rotation);
         }
@@ -238,6 +258,7 @@ namespace Seam
         private void StopWatching() { imageWatcher?.Dispose(); imageWatcher = null; watchedImage = null; watchTimer.Stop(); }
         private void NewTattoo()
         {
+            if (!GameInstallation.Available || !Preview.HasPed) { SetStatus("Tattoo editing requires a loaded live GTA V character preview."); return; }
             if (selectedTattoo != null && artworkDirty) SaveTattoo();
             var tattoo = new TattooDesign { Id = Guid.NewGuid().ToString("N"), Name = "Tattoo " + (project.Tattoos.Count + 1), Ped = "male", Zone = "ZONE_TORSO", U = .5, V = .5, ScaleX = .2, ScaleY = .2 };
             project.Tattoos.Add(tattoo); selectedTattoo = tattoo; loadingControls = true; Artwork.Reset(); loadingControls = false; artworkDirty = dirty = true; RefreshLibrary(); TattooList.SelectedItem = tattoo; LoadTattooControls(tattoo); EditingName.Text = tattoo.Name;

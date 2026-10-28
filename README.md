@@ -12,6 +12,10 @@ Requires **Windows x64 and .NET Framework 4.8**. The actual male/female freemode
 
 Open `Seam.exe` to choose a tool, or use `Seam.exe --maps` / `Seam.exe --clothing` to open one directly. The window supports moving, resizing and standard minimize/maximize/close controls.
 
+On first run, choose your **GTA V Legacy installation** or **Continue without GTA**. The choice is saved for your Windows account. Use **GTA installation** in the launcher or Clothing Studio to change it later; Map Merger also offers a shortcut while its preview is disabled. Detected folders are suggestions; the app does not select one without your choice.
+
+Without a selected installation, map merging/fixing, clothing pack creation and 2D YTD editing remain available. All 3D previews and camera controls are disabled. Tattoo editing stays disabled until a valid installation is selected and its live freemode preview loads successfully.
+
 ## Map Merger
 
 1. Add extracted map resource folders or stream assets.

@@ -35,6 +35,7 @@ internal static class Program
 
     private static void Run(string directory)
     {
+        GameInstallationChecks.Run(directory, Assert);
         string[] packs = MergeWorkspace.CreateDemo(Path.Combine(directory, "sources"));
         // Real resources in separate nested folders catch project restoration that accidentally
         // regroups one logical pack into several packs based on immediate parent directories.

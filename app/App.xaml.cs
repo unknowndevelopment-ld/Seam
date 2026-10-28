@@ -156,6 +156,13 @@ namespace Seam
                     Assembly.Load("SharpDX.Mathematics");
                     Assembly.Load("CodeWalker.Core");
                 });
+                if (GameInstallation.NeedsSetup)
+                {
+                    loading.Hide();
+                    GameSetupWindow.Configure(null);
+                    if (GameInstallation.NeedsSetup) { loading.Close(); Shutdown(); return; }
+                    loading.Show();
+                }
                 directMode = e.Args.Contains("--maps",StringComparer.OrdinalIgnoreCase) || e.Args.Any(p=>File.Exists(p)||Directory.Exists(p));
                 if(directMode) OpenMapMerger();
                 else if(e.Args.Contains("--clothing",StringComparer.OrdinalIgnoreCase)) OpenClothingStudio();

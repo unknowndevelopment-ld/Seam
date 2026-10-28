@@ -23,6 +23,7 @@ namespace Seam
         private SceneItem selectedItem;
         private string pendingProgress;
         private int progressQueued;
+        private bool previewRefreshPending;
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
@@ -30,6 +31,9 @@ namespace Seam
         public MainWindow()
         {
             InitializeComponent();
+            workspace.BuildPreview = GameInstallation.Available;
+            GameInstallation.Changed += InstallationChanged;
+            Closed += (s, e) => GameInstallation.Changed -= InstallationChanged;
             SourceInitialized += (s, e) =>
             {
                 var handle = new WindowInteropHelper(this).Handle;
@@ -137,8 +141,25 @@ namespace Seam
                 busy = false;
                 ActionBar.IsEnabled = ProjectControls.IsEnabled = WorkspaceGrid.IsEnabled = true;
                 BusyOverlay.Visibility = Visibility.Collapsed;
+                if (previewRefreshPending) { previewRefreshPending = false; _ = Dispatcher.BeginInvoke(new Action(() => InstallationChanged(null, EventArgs.Empty))); }
             }
         }
+        private async void InstallationChanged(object sender, EventArgs e)
+        {
+            UpdatePreviewAvailability();
+            if (busy) { previewRefreshPending = true; return; }
+            workspace.BuildPreview = GameInstallation.Available;
+            if (workspace.Packs.Count > 0) await Work("Updating preview availability…", () => workspace.Refresh(Progress), true, false);
+            else RefreshView(false);
+        }
+        private void UpdatePreviewAvailability()
+        {
+            bool enabled = GameInstallation.Available;
+            Viewport.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            PreviewDisabled.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+            CollisionToggle.IsEnabled = FrameAllButton.IsEnabled = FrameSelectionButton.IsEnabled = enabled;
+        }
+        private void GameInstallation_Click(object sender, RoutedEventArgs e) { if (!busy) GameSetupWindow.Configure(this); }
 
         private void Progress(string message)
         {
@@ -168,9 +189,10 @@ namespace Seam
             AutoMergeButton.IsEnabled = ExportButton.IsEnabled = hasInputs;
             ExportButton.ToolTip = "Export each original resource separately with _merged, keeping its own .fxap and manifest";
             AutoMergeButton.ToolTip = "Merge YMAP/YBN files and repair verified prop, light and map-bound faults. Uncertain placements are reported; protected assets stay unchanged.";
-            Welcome.Visibility = workspace.Packs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            SourcesEmpty.Visibility = Welcome.Visibility;
-            Viewport.SetScene(workspace.Scene, frame);
+            UpdatePreviewAvailability();
+            Welcome.Visibility = workspace.Packs.Count == 0 && GameInstallation.Available ? Visibility.Visible : Visibility.Collapsed;
+            SourcesEmpty.Visibility = workspace.Packs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            Viewport.SetScene(GameInstallation.Available ? workspace.Scene : (System.Collections.Generic.IEnumerable<SceneItem>)Array.Empty<SceneItem>(), frame);
             int proxies = workspace.Scene.Count(i => i.IsProxy && !i.IsCollision && !i.Excluded);
             SceneSummary.Text = workspace.Scene.Count(i => !i.Excluded).ToString("N0") + " objects" + (proxies > 0 ? " · " + proxies.ToString("N0") + " proxies" : "");
             NoticeButton.Visibility = workspace.Notices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -334,7 +356,7 @@ namespace Seam
         {
             if (!ConfirmDiscard()) return;
             MergeWorkspace loaded = null;
-            if (await Work("Opening project…", () => loaded = MergeWorkspace.LoadProject(path, Progress), false, false))
+            if (await Work("Opening project…", () => loaded = MergeWorkspace.LoadProject(path, Progress, GameInstallation.Available), false, false))
             {
                 workspace = loaded;
                 projectPath = path; dirty = false; selectedItem = null;
@@ -419,7 +441,7 @@ namespace Seam
             if (busy) return;
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S) { SaveProject(); e.Handled = true; }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O) { OpenProject_Click(sender, e); e.Handled = true; }
-            else if (e.Key == Key.Home && !(Keyboard.FocusedElement is TextBox)) { Viewport.FrameAll(); e.Handled = true; }
+            else if (e.Key == Key.Home && GameInstallation.Available && !(Keyboard.FocusedElement is TextBox)) { Viewport.FrameAll(); e.Handled = true; }
         }
     }
 }

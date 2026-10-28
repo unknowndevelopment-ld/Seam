@@ -23,7 +23,7 @@ namespace Seam
             if (assets.Any(a => a.Excluded || a.Entities.Any(e => e.Excluded) || a.Collisions.Any(c => c.Excluded)))
             {
                 RestoreAll();
-                Scene.Clear(); Scene.AddRange(GeometryReader.Build(this, progress));
+                Scene.Clear(); if (BuildPreview) Scene.AddRange(GeometryReader.Build(this, progress));
             }
             var plan = new AutomaticMergePlan { PreserveResourceFolders = preserveResources, InputFiles = assets.Count, InputMaps = assets.Count(a => a.Extension == ".ymap"), InputCollisions = assets.Count(a => a.Extension == ".ybn") };
             foreach (var asset in assets)
