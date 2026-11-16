@@ -138,6 +138,8 @@ internal static class Program
         passed += CollisionMergeChecks.Run(Path.Combine(directory, "collision-auto"));
         passed += EncryptedSkipChecks.Run(Path.Combine(directory, "encrypted-skip"));
         passed += ResourceFolderChecks.Run(Path.Combine(directory, "resource-folders"));
+        passed += ResourceCollectionChecks.Run(Path.Combine(directory, "resource-collection"));
+        passed += ResourceCollectionStressChecks.Run(Path.Combine(directory, "resource-collection-stress"));
         AssertSourceHashes(originalHashes, "additional XML and LOD checks preserve original procedural sources");
     }
 

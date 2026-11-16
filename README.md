@@ -18,12 +18,14 @@ Without a selected installation, map merging/fixing, clothing pack creation and 
 
 ## Map Merger
 
-1. Add extracted map resource folders or stream assets.
+1. Add a map resource, a folder containing several resources, or loose stream assets.
 2. Put the preferred source at the top and select **Auto merge**.
 3. Inspect the source scene and processing report.
 4. Select **Export resources**.
 
-Each resource exports to its own `<original>_merged` folder. Readable YMAP/YBN data is combined where compatible. Original `.fxap` files, manifests, scripts, protected assets and relative paths remain with their resource. Input files remain unchanged.
+A dropped container such as `[mlos]` or `[school]` is searched recursively. Every resource inside becomes an own source, including resources nested in grouping folders and packs without a manifest that still contain a `stream` folder. Large collections load one resource at a time with a determinate progress bar, so the window stays responsive. Dropping the same collection again is reported instead of duplicating sources.
+
+Each resource exports to its own `<original>_merged` folder. Readable YMAP/YBN data is combined where compatible. Original `.fxap` files, manifests, scripts, protected assets and relative paths remain with their resource. Input files remain unchanged. The completion summary lists every written resource folder and stays inside the screen; paths can be copied or the output folder opened.
 
 The engine resolves verified duplicates and compatible authored map, collision and light data. It repairs verifiable placement/light/bounds faults and reports uncertain floating props. Overlap alone does not establish a faulty collision; arbitrary intersecting interiors and floor geometry still require review in game. Protected assets are preserved rather than decrypted. Extract RPF archives before importing.
 
@@ -38,14 +40,14 @@ See [Clothing Studio](docs/Clothing-Studio.md) for workflows and limitations. Th
 
 ## Build and verify
 
-Install a .NET SDK, the .NET Framework 4.8 Developer Pack, and Windows PowerShell. From the repository root:
+Install a .NET SDK and Windows PowerShell. From the repository root:
 
 ```powershell
 .\Build.cmd
 .\Build.cmd -Check
 ```
 
-The build produces `Seam.exe` and `dist/Seam.exe`. `-Check` runs native codec, merge/export, packaging and Windows UI checks. Use an interactive Windows desktop for the UI checks. Set `SEAM_SCHOOL_FIXTURE` to an optional local map fixture folder to run additional resource checks; the fixture is not distributed.
+The build produces `Seam.exe` and `dist/Seam.exe`. The .NET Framework 4.8 targeting pack is used when installed; otherwise the SDK restores Microsoft's reference-assembly package automatically, so no separate Developer Pack download is required. `-Check` runs native codec, merge/export, collection import, packaging and Windows UI checks. Use an interactive Windows desktop for the UI checks. Set `SEAM_SCHOOL_FIXTURE` to an optional local map fixture folder to run additional resource checks; the fixture is not distributed.
 
 Tests generate their own demo assets. Actual-game preview checks are optional and require a local GTA V Legacy installation. See [validation](docs/VALIDATION.md).
 

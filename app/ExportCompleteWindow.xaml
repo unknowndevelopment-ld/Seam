@@ -1,0 +1,76 @@
+<Window x:Class="Seam.ExportCompleteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seam — export complete"
+        Width="660" Height="600" MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        ShowInTaskbar="False" UseLayoutRounding="True">
+  <Grid Margin="26,22,26,0">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <TextBlock Text="Export complete" FontSize="21" FontWeight="SemiBold"/>
+      <TextBlock x:Name="SummaryText" Margin="0,7,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="19" Foreground="{StaticResource Muted}"/>
+    </StackPanel>
+
+    <Border Grid.Row="1" Margin="0,18,0,0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" MinHeight="0">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="14,10,8,8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="0" Text="Resources written" VerticalAlignment="Center" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Subtle}"/>
+          <Button Grid.Column="1" x:Name="CopyButton" Content="Copy paths" Style="{StaticResource Small}" Click="Copy_Click" AutomationProperties.Name="Copy exported paths"/>
+        </Grid>
+        <ListBox Grid.Row="1" x:Name="ResourceList" Margin="2,0,2,2" Background="Transparent" BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.CanContentScroll="True"
+                 VirtualizingStackPanel.IsVirtualizing="True"
+                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                 AutomationProperties.Name="Exported resource folders">
+          <ListBox.ItemContainerStyle>
+            <Style TargetType="ListBoxItem">
+              <Setter Property="Focusable" Value="False"/>
+              <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="ListBoxItem">
+                    <Border BorderBrush="#262B35" BorderThickness="0,1,0,0"><ContentPresenter/></Border>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ListBox.ItemContainerStyle>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="12,9" FontSize="12" LineHeight="18" Foreground="{StaticResource Text}"/>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" Margin="0,16,0,18">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" FontSize="11" LineHeight="17" Foreground="{StaticResource Subtle}"
+                 Text="Original .fxap, manifests and assets were retained. Use all output copies together instead of the originals."/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="OpenButton" Content="Open output folder" Margin="0,0,8,0" Style="{StaticResource Primary}" Click="Open_Click"/>
+        <Button x:Name="CloseButton" Content="Close" MinWidth="86" IsCancel="True" IsDefault="True" Click="Close_Click" AutomationProperties.Name="Close export summary"/>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

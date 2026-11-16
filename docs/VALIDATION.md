@@ -2,7 +2,7 @@
 
 The desktop release builds with zero warnings and zero errors. Its checks exercise real native resource serialization and readback, source preservation, YMAP hierarchy/light merging, YBN collision handling, resource manifests and escrow metadata, texture dictionaries, clothing/tattoo pack generation, portable EXE packaging and native window controls.
 
-UI checks open the real Windows launcher, map workspace and clothing editor. They verify moving/resizing controls, separate resource export, progress coalescing, texture/tattoo artwork rendering and mode transitions. Run them from an interactive Windows desktop.
+UI checks open the real Windows launcher, map workspace and clothing editor. They verify moving/resizing controls, separate resource export, progress coalescing, texture/tattoo artwork rendering and mode transitions. Collection checks drop a nested `[mlos]`-style folder, confirm every nested and manifest-less resource imports as its own source, follow the determinate per-resource progress, re-drop the same folder as a no-op, and verify the export summary stays inside the screen. Run them from an interactive Windows desktop.
 
 Installation checks exercise the real first-run dialog, invalid folders, the saved continue-without-GTA choice, disabled 3D and camera controls, blocked tattoo entry, and working 2D YTD editing. Native checks compare merged map/light repair bytes with previews enabled and disabled, export separate map resources, and build a clothing pack without a selected installation. Test settings use private files under `artifacts/`; they do not overwrite the user's saved installation choice.
 

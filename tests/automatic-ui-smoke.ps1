@@ -97,6 +97,47 @@ public static class AutomaticUiProbe
             results.SelectedIndex = 0; Pump();
             Check(window.FindName("MinimizeButton") != null && window.FindName("MaximizeButton") != null && window.FindName("CloseButton") != null,
                 "native window controls remain available");
+
+            // Drive the real drop-import handler with a collection of resources.
+            var workspaceField = window.GetType().GetField("workspace", BindingFlags.NonPublic | BindingFlags.Instance);
+            var workspace = workspaceField.GetValue(window);
+            var packsProperty = workspace.GetType().GetProperty("Packs");
+            var lastPlanProperty = workspace.GetType().GetProperty("LastAutomaticMerge");
+            int packsBefore = ((System.Collections.ICollection)packsProperty.GetValue(workspace, null)).Count;
+            var previousPlan = lastPlanProperty.GetValue(workspace, null);
+            string fixture = Path.Combine(Path.GetTempPath(), "Seam-ui-collection-" + Guid.NewGuid().ToString("N"));
+            var createDemo = assembly.GetType("Seam.MergeWorkspace").GetMethod("CreateDemo", BindingFlags.Public | BindingFlags.Static);
+            var demoResources = (string[])createDemo.Invoke(null, new object[] { Path.Combine(fixture, "demo") });
+            string collection = Path.Combine(fixture, "[mlos ui]");
+            string category = Path.Combine(collection, "[category]");
+            Directory.CreateDirectory(category);
+            foreach (var resource in demoResources) CopyDirectory(resource, Path.Combine(category, Path.GetFileName(resource)));
+            var import = window.GetType().GetMethod("Import", BindingFlags.NonPublic | BindingFlags.Instance);
+            var busyOverlay = (Border)window.FindName("BusyOverlay");
+            var busyProgress = (ProgressBar)window.FindName("BusyProgress");
+            var task = (System.Threading.Tasks.Task)import.Invoke(window, new object[] { new[] { collection } });
+            Check(busyOverlay.Visibility == Visibility.Visible,
+                "collection import shows the loading overlay before resources finish");
+            Wait(() => task.IsCompleted, "Collection drop import");
+            task.GetAwaiter().GetResult(); Pump();
+            Check(busyOverlay.Visibility == Visibility.Collapsed && (int)busyProgress.Maximum == 2 && busyProgress.Value == 2,
+                "collection import advances a determinate per-resource progress indicator");
+            int packsAfter = ((System.Collections.ICollection)packsProperty.GetValue(workspace, null)).Count;
+            var lastPlan = lastPlanProperty.GetValue(workspace, null);
+            Check(packsAfter == packsBefore + 2 && lastPlan != null && !ReferenceEquals(previousPlan, lastPlan),
+                "dropping a resource collection imports every resource as its own source");
+            Check((bool)lastPlan.GetType().GetProperty("PreserveResourceFolders").GetValue(lastPlan, null) &&
+                (int)lastPlan.GetType().GetProperty("ResourceCount").GetValue(lastPlan, null) == packsAfter,
+                "collection drop automatically prepares the separate-resource merge");
+            Check(((TextBlock)window.FindName("StatusText")).Text.StartsWith("Imported 2 resources", StringComparison.Ordinal),
+                "collection drop reports the imported resources after automatic merging");
+            var repeatTask = (System.Threading.Tasks.Task)import.Invoke(window, new object[] { new[] { collection } });
+            Wait(() => repeatTask.IsCompleted, "Repeated collection drop");
+            repeatTask.GetAwaiter().GetResult(); Pump();
+            Check(((TextBlock)window.FindName("StatusText")).Text.StartsWith("Already in this workspace", StringComparison.Ordinal) &&
+                ((System.Collections.ICollection)packsProperty.GetValue(workspace, null)).Count == packsAfter,
+                "dropping the same collection again is a no-op in the desktop UI");
+
             window.UpdateLayout(); Pump();
             var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(window);
@@ -112,6 +153,12 @@ public static class AutomaticUiProbe
             window.Close(); app.Shutdown();
         }
         Console.WriteLine("PASS: " + count + " automatic UI assertions");
+    }
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var file in Directory.GetFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)), false);
+        foreach (var child in Directory.GetDirectories(source)) CopyDirectory(child, Path.Combine(target, Path.GetFileName(child)));
     }
     private static Button FindButton(DependencyObject node, string content)
     {

@@ -30,7 +30,7 @@
     <Grid Grid.Row="1" x:Name="ActionBar" Margin="20,0">
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Click="AddFolder_Click" ToolTip="Add a GTA V resource folder" AutomationProperties.Name="Add map folder"><StackPanel Orientation="Horizontal"><Path Data="M1,4 L8,4 L10,7 L21,7 L21,18 L1,18 Z" Width="16" Height="14" Stretch="Uniform" Stroke="{StaticResource Muted}" StrokeThickness="1.3" StrokeLineJoin="Round" Margin="0,0,9,0" VerticalAlignment="Center"/><TextBlock Text="Add map folder"/></StackPanel></Button>
+        <Button Click="AddFolder_Click" ToolTip="Add a map resource or a whole collection folder such as [mlos]" AutomationProperties.Name="Add map folder"><StackPanel Orientation="Horizontal"><Path Data="M1,4 L8,4 L10,7 L21,7 L21,18 L1,18 Z" Width="16" Height="14" Stretch="Uniform" Stroke="{StaticResource Muted}" StrokeThickness="1.3" StrokeLineJoin="Round" Margin="0,0,9,0" VerticalAlignment="Center"/><TextBlock Text="Add map folder"/></StackPanel></Button>
         <Button Content="Add files" Style="{StaticResource Quiet}" Margin="5,0,0,0" Click="AddFiles_Click"/>
       </StackPanel>
       <StackPanel Grid.Column="1" x:Name="WorkspaceStats" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -58,7 +58,7 @@
                 <CheckBox Grid.Column="2" IsChecked="{Binding Enabled,Mode=TwoWay}" Click="PackEnabled_Click" VerticalAlignment="Top" Margin="0,1,-8,0" ToolTip="Include this source" AutomationProperties.Name="{Binding Name}"/>
               </Grid>
             </DataTemplate></ListBox.ItemTemplate></ListBox>
-            <StackPanel x:Name="SourcesEmpty" Margin="13,24,13,0" VerticalAlignment="Top"><Path Data="M1,4 L8,4 L10,7 L21,7 L21,18 L1,18 Z" Width="28" Height="24" Stretch="Uniform" Stroke="#5E6F8E" StrokeThickness="1.1" StrokeLineJoin="Round" HorizontalAlignment="Left" Margin="0,0,0,15"/><TextBlock Text="No sources added" FontSize="12" Foreground="{StaticResource Muted}"/><TextBlock Text="Add folders or drop them into the viewport." FontSize="11" Foreground="{StaticResource Subtle}" TextWrapping="Wrap" LineHeight="18" Margin="0,7,0,0"/></StackPanel>
+            <StackPanel x:Name="SourcesEmpty" Margin="13,24,13,0" VerticalAlignment="Top"><Path Data="M1,4 L8,4 L10,7 L21,7 L21,18 L1,18 Z" Width="28" Height="24" Stretch="Uniform" Stroke="#5E6F8E" StrokeThickness="1.1" StrokeLineJoin="Round" HorizontalAlignment="Left" Margin="0,0,0,15"/><TextBlock Text="No sources added" FontSize="12" Foreground="{StaticResource Muted}"/><TextBlock Text="Drop a resource, or a whole collection such as [mlos]. Seam finds every resource and merges only shared map files." FontSize="11" Foreground="{StaticResource Subtle}" TextWrapping="Wrap" LineHeight="18" Margin="0,7,0,0"/></StackPanel>
           </Grid>
           <Border Grid.Row="2" BorderBrush="#292E38" BorderThickness="0,1,0,0" Padding="12,11">
             <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding SelectedItem,ElementName=PackList}" Value="{x:Null}"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Border.Style>
@@ -135,7 +135,7 @@
     </Border>
     <Border x:Name="BusyOverlay" Grid.Row="2" Visibility="Collapsed" Background="#DA111318" CornerRadius="9" Margin="16,0,16,12">
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600" Margin="30"><Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="10" Padding="32">
-        <StackPanel><TextBlock Text="Working on your maps" FontSize="18" FontWeight="SemiBold" TextAlignment="Center"/><TextBlock x:Name="BusyText" Text="Reading assets…" FontSize="12" Foreground="{StaticResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,22"/><ProgressBar IsIndeterminate="True" Width="260" Height="3" Foreground="{StaticResource AccentFill}" Background="#303A4B" BorderThickness="0"/><TextBlock Text="Source files stay intact." Foreground="{StaticResource Subtle}" HorizontalAlignment="Center" Margin="0,17,0,0" FontSize="11"/></StackPanel>
+        <StackPanel><TextBlock Text="Working on your maps" FontSize="18" FontWeight="SemiBold" TextAlignment="Center"/><TextBlock x:Name="BusyText" Text="Reading assets…" FontSize="12" Foreground="{StaticResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,22"/><ProgressBar x:Name="BusyIndeterminate" IsIndeterminate="True" Width="260" Height="3" Foreground="{StaticResource AccentFill}" Background="#303A4B" BorderThickness="0"/><ProgressBar x:Name="BusyProgress" Visibility="Collapsed" Minimum="0" Maximum="1" Width="260" Height="3" Foreground="{StaticResource AccentFill}" Background="#303A4B" BorderThickness="0" Margin="0,8,0,0"/><TextBlock Text="Source files stay intact." Foreground="{StaticResource Subtle}" HorizontalAlignment="Center" Margin="0,17,0,0" FontSize="11"/></StackPanel>
       </Border></StackPanel>
     </Border>
   </Grid>

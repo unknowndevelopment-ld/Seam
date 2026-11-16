@@ -34,6 +34,10 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Window behavior checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\automatic-ui-smoke.ps1' }"
         if ($LASTEXITCODE -ne 0) { throw 'Automatic merger UI checks failed.' }
+        & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\collection-load-smoke.ps1' }"
+        if ($LASTEXITCODE -ne 0) { throw 'Collection loading UI checks failed.' }
+        & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\export-dialog-smoke.ps1' }"
+        if ($LASTEXITCODE -ne 0) { throw 'Export summary UI checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\clothing-ui-smoke.ps1' }"
         if ($LASTEXITCODE -ne 0) { throw 'Clothing Studio UI checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\game-setup-smoke.ps1' }"

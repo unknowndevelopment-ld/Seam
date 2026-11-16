@@ -25,7 +25,7 @@ namespace Seam
                 var assets = group.SelectMany(p => p.Pack.Assets).ToList();
                 string root = group.Key;
                 return new ResourceFolder { Root = root, Name = new DirectoryInfo(root).Name, Assets = assets,
-                    Files = IsResourceFolder(root) ? AllResourceFiles(root).ToArray() : assets.Select(a => a.Path).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() };
+                    Files = IsResourceFolder(root) || IsAssetFolder(root) ? AllResourceFiles(root).ToArray() : assets.Select(a => a.Path).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() };
             }).ToList();
         }
 
@@ -164,7 +164,7 @@ namespace Seam
         {
             foreach (var folder in folders)
             {
-                if (IsResourceFolder(folder.Root) && !new HashSet<string>(AllResourceFiles(folder.Root), StringComparer.OrdinalIgnoreCase).SetEquals(folder.Files))
+                if ((IsResourceFolder(folder.Root) || IsAssetFolder(folder.Root)) && !new HashSet<string>(AllResourceFiles(folder.Root), StringComparer.OrdinalIgnoreCase).SetEquals(folder.Files))
                     throw new IOException("Files were added or removed from " + folder.Root + ". Run Auto merge again.");
                 foreach (var file in folder.Files)
                     if (!plan.SourceFiles.TryGetValue(file, out var digest) || !File.Exists(file) || HashFile(file) != digest)

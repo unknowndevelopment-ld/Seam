@@ -115,6 +115,17 @@ namespace Seam
         public List<string> ResourcePaths { get; } = new List<string>();
     }
 
+    public sealed class ImportResult
+    {
+        public int AssetCount { get; set; }
+        public int ResourceCount { get; set; }
+        public int EntityCount { get; set; }
+        public bool IsCollection { get; set; }
+        public bool AutoMergeRecommended { get; set; }
+        public bool AlreadyImported { get; set; }
+        public string Container { get; set; }
+    }
+
     // Engine API consumed by the desktop shell. First pack has highest priority.
     public sealed partial class MergeWorkspace
     {

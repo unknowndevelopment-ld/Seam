@@ -32,21 +32,30 @@ namespace Seam
         internal static string StreamName(string path) => System.IO.Path.GetFileName(IsXml(path) ? path.Substring(0, path.Length - 4) : path);
         private static string KindOf(string path) => System.IO.Path.GetExtension(StreamName(path)).ToLowerInvariant();
 
-        public void Import(string[] paths, Action<string> progress = null)
+        public ImportResult Import(string[] paths, Action<string> progress = null, bool refresh = true)
         {
-            if (paths == null || paths.Length == 0) return;
+            var result = new ImportResult();
+            if (paths == null || paths.Length == 0) return result;
             // Build imports privately: an interrupted/failed import cannot leave half a pack.
             var pending = new List<MapPack>();
             var groups = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            bool isCollection = false;
+            string container = null;
             foreach (var input in paths)
             {
                 var full = System.IO.Path.GetFullPath(input);
                 if (Directory.Exists(full))
                 {
-                    var children = Directory.EnumerateDirectories(full).Where(d => (File.GetAttributes(d) & FileAttributes.ReparsePoint) == 0 && IsResourceFolder(d)).OrderBy(d => d, StringComparer.OrdinalIgnoreCase).ToArray();
-                    if (!IsResourceFolder(full) && children.Length > 0)
-                        foreach (var child in children) groups[child] = EnumerateSafe(child).ToList();
-                    else groups[full] = EnumerateSafe(full).ToList();
+                    // A dropped category folder such as [mlos] can contain resources at
+                    // several nesting levels. Find every resource root, then keep each one
+                    // as its own source so exports retain their original folders.
+                    var roots = DiscoverResourceFolders(full);
+                    if (!IsResourceFolder(full) && (roots.Count > 1 || roots.Count == 1 && !System.IO.Path.GetFullPath(roots[0]).Equals(full, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        isCollection = true;
+                        if (container == null) container = full;
+                    }
+                    foreach (var root in roots) groups[root] = EnumerateSafe(root).ToList();
                 }
                 else if (File.Exists(full))
                 {
@@ -57,6 +66,7 @@ namespace Seam
                 else throw new FileNotFoundException("The selected path no longer exists.", full);
             }
             var loaded = new HashSet<string>(Packs.SelectMany(p => p.Assets).Select(a => a.Path), StringComparer.OrdinalIgnoreCase);
+            bool alreadyLoaded = false;
             foreach (var group in groups)
             {
                 var pack = new MapPack { Id = StableId("pack:" + group.Key), Root = group.Key, Name = new DirectoryInfo(group.Key).Name, Color = Colors[(Packs.Count + pending.Count) % Colors.Length] };
@@ -65,7 +75,7 @@ namespace Seam
                 foreach (var file in list)
                 {
                     if (!StreamTypes.Contains(KindOf(file)) || (IsXml(file) && KindOf(file) != ".ymap" && KindOf(file) != ".ytyp" && KindOf(file) != ".ybn")) continue;
-                    if (!loaded.Add(file)) continue;
+                    if (!loaded.Add(file)) { alreadyLoaded = true; continue; }
                     progress?.Invoke($"Reading {pack.Name} · {++i}: {System.IO.Path.GetFileName(file)}");
                     var asset = new MapAsset { Id = StableId("asset:" + file), Pack = pack, Path = file, Name = StreamName(file), Extension = KindOf(file) };
                     try
@@ -83,7 +93,19 @@ namespace Seam
                 if (list.Any(f => System.IO.Path.GetExtension(f).Equals(".lua", StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetExtension(f).Equals(".meta", StringComparison.OrdinalIgnoreCase)))
                     importNotices.Add(pack.Name + ": local scripts and manifest declarations are included by automatic export.");
             }
-            if (pending.Count == 0) throw new InvalidDataException("No new supported map assets found. Import extracted map folders or loose YMAP, YTYP, YBN, YDR, YDD and YTD files.");
+            if (pending.Count == 0)
+            {
+                if (alreadyLoaded)
+                {
+                    // Dropping the same folder again is a no-op, not an error.
+                    result.ResourceCount = groups.Count;
+                    result.IsCollection = isCollection;
+                    result.Container = container;
+                    result.AlreadyImported = true;
+                    return result;
+                }
+                throw new InvalidDataException("No new supported map assets found. Import extracted map folders or loose YMAP, YTYP, YBN, YDR, YDD and YTD files.");
+            }
             foreach (var pack in pending)
             {
                 // Separate imports from one folder retain one deterministic pack identity.
@@ -91,7 +113,14 @@ namespace Seam
                 if (existing != null) existing.Assets.AddRange(pack.Assets.Select(a => { a.Pack = existing; return a; }));
                 else Packs.Add(pack);
             }
-            Refresh(progress);
+            result.ResourceCount = pending.Count;
+            result.AssetCount = pending.Sum(p => p.Assets.Count);
+            result.EntityCount = pending.Sum(p => p.EntityCount);
+            result.IsCollection = isCollection;
+            result.Container = container;
+            result.AutoMergeRecommended = result.ResourceCount > 1 && (isCollection || paths.Count(p => Directory.Exists(p)) > 0);
+            if (refresh) Refresh(progress);
+            return result;
         }
 
         private static IEnumerable<string> EnumerateSafe(string directory)
@@ -108,6 +137,38 @@ namespace Seam
             }
         }
         private static bool IsResourceFolder(string directory) => File.Exists(System.IO.Path.Combine(directory, "fxmanifest.lua")) || File.Exists(System.IO.Path.Combine(directory, "__resource.lua"));
+
+        // A resource is either a manifest folder or an extracted asset folder that
+        // directly contains a stream directory / supported stream files. This also
+        // accepts MLO packs whose author omitted fxmanifest.lua.
+        private static bool IsAssetFolder(string directory) =>
+            Directory.EnumerateDirectories(directory).Any(d => System.IO.Path.GetFileName(d).Equals("stream", StringComparison.OrdinalIgnoreCase)) ||
+            Directory.EnumerateFiles(directory).Any(f => StreamTypes.Contains(KindOf(f)));
+
+        internal static List<string> DiscoverResourceFolders(string start)
+        {
+            var full = System.IO.Path.GetFullPath(start);
+            if (IsResourceFolder(full)) return new List<string> { full };
+            var found = new List<string>();
+            ScanResourceFolders(full, found, 0);
+            // A plain folder of loose assets remains one source, as before.
+            if (found.Count == 0) return new List<string> { full };
+            return found;
+        }
+
+        private static void ScanResourceFolders(string directory, List<string> found, int depth)
+        {
+            if (depth > 32) return;
+            foreach (var child in Directory.EnumerateDirectories(directory)
+                .Where(d => (File.GetAttributes(d) & FileAttributes.ReparsePoint) == 0)
+                .Where(d => { var name = System.IO.Path.GetFileName(d); return name != ".git" && name != "node_modules" && !name.StartsWith(".seam-", StringComparison.OrdinalIgnoreCase); })
+                .OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                // Stop at the resource root: its stream/client subfolders belong to it.
+                if (IsResourceFolder(child) || IsAssetFolder(child)) found.Add(child);
+                else ScanResourceFolders(child, found, depth + 1);
+            }
+        }
 
         internal static byte[] ReadResourceBytes(string path, string extension)
         {

@@ -104,7 +104,7 @@ $notices = $assembly.GetType('Seam.App').GetProperty('ThirdPartyNotices').GetVal
 Assert ($notices -match 'dexyfex') 'third-party notices are retained inside the executable'
 $paths = [Seam.MergeWorkspace]::CreateDemo((Join-Path $testRoot 'Procedural sources'))
 $workspace = New-Object Seam.MergeWorkspace
-$workspace.Import([string[]]$paths, $null)
+[void]$workspace.Import([string[]]$paths, $null)
 Assert ($workspace.Packs.Count -eq 2 -and $workspace.Scene.Count -eq 13) 'embedded parsers produce the full native demo scene'
 $textured = @($workspace.Scene | Where-Object { -not $_.IsCollision -and (Has-Texture $_.Model) })
 Assert ($textured.Count -eq 9) 'all nine drawable models use decoded YTD texture images'

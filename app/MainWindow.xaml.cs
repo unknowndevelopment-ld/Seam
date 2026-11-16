@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -113,14 +114,31 @@ namespace Seam
                 Math.Max(0, last.Y - work.Bottom) * fromDevice.M22);
         }
 
-        private async Task<bool> Work(string label, Action action, bool frame = false, bool markDirty = true)
+        private void BeginWork(string label)
         {
-            if (busy) return false;
             busy = true;
             ActionBar.IsEnabled = ProjectControls.IsEnabled = WorkspaceGrid.IsEnabled = false;
             BusyText.Text = label;
             BusyOverlay.Visibility = Visibility.Visible;
+            BusyIndeterminate.Visibility = Visibility.Visible;
+            BusyProgress.Visibility = Visibility.Collapsed;
             StatusText.Text = label;
+        }
+
+        private void EndWork()
+        {
+            busy = false;
+            ActionBar.IsEnabled = ProjectControls.IsEnabled = WorkspaceGrid.IsEnabled = true;
+            BusyOverlay.Visibility = Visibility.Collapsed;
+            BusyIndeterminate.Visibility = Visibility.Visible;
+            BusyProgress.Visibility = Visibility.Collapsed;
+            if (previewRefreshPending) { previewRefreshPending = false; _ = Dispatcher.BeginInvoke(new Action(() => InstallationChanged(null, EventArgs.Empty))); }
+        }
+
+        private async Task<bool> Work(string label, Action action, bool frame = false, bool markDirty = true)
+        {
+            if (busy) return false;
+            BeginWork(label);
             try
             {
                 await Task.Run(action);
@@ -138,10 +156,7 @@ namespace Seam
             }
             finally
             {
-                busy = false;
-                ActionBar.IsEnabled = ProjectControls.IsEnabled = WorkspaceGrid.IsEnabled = true;
-                BusyOverlay.Visibility = Visibility.Collapsed;
-                if (previewRefreshPending) { previewRefreshPending = false; _ = Dispatcher.BeginInvoke(new Action(() => InstallationChanged(null, EventArgs.Empty))); }
+                EndWork();
             }
         }
         private async void InstallationChanged(object sender, EventArgs e)
@@ -231,13 +246,145 @@ namespace Seam
 
         private async Task Import(string[] paths)
         {
-            if (paths.Length == 0) return;
-            await Work("Reading map assets…", () => workspace.Import(paths, Progress), true);
+            if (paths.Length == 0 || busy) return;
+            BeginWork("Finding resource folders…");
+            int addedResources = 0, addedAssets = 0, alreadyResources = 0;
+            long addedEntities = 0;
+            int enabledResources = workspace.Packs.Count(p => p.Enabled);
+            long initialEntities = workspace.Packs.Where(p => p.Enabled).Sum(p => (long)p.EntityCount);
+            bool anyCollection = false;
+            try
+            {
+                var units = await Task.Run(() => BuildImportUnits(paths));
+                if (units.Count == 0) return;
+                bool showProgress = units.Count > 1;
+                BusyIndeterminate.Visibility = showProgress ? Visibility.Collapsed : Visibility.Visible;
+                BusyProgress.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
+                BusyProgress.Minimum = 0;
+                BusyProgress.Maximum = Math.Max(1, units.Count);
+                BusyProgress.Value = 0;
+                for (int index = 0; index < units.Count; index++)
+                {
+                    var unit = units[index];
+                    BusyText.Text = StatusText.Text = $"Adding {unit.Label} · {index + 1:N0} of {units.Count:N0}";
+                    BusyProgress.Value = index;
+                    ImportResult imported = null;
+                    try { await Task.Run(() => imported = workspace.Import(unit.Paths.ToArray(), Progress, false)); }
+                    catch (InvalidDataException) { imported = null; }
+                    if (imported != null)
+                    {
+                        if (imported.AlreadyImported) alreadyResources += imported.ResourceCount;
+                        else
+                        {
+                            addedResources += imported.ResourceCount;
+                            addedAssets += imported.AssetCount;
+                            addedEntities += imported.EntityCount;
+                            anyCollection |= unit.IsCollection;
+                        }
+                    }
+                    BusyProgress.Value = index + 1;
+                    UpdateImportCounters(enabledResources + addedResources, initialEntities + addedEntities);
+                    BusyText.Text = StatusText.Text = $"{addedResources:N0} of {units.Count:N0} resources loaded · {addedAssets:N0} files";
+                    // Let WPF paint the list, counters and loading animation between resources.
+                    await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                }
+                if (addedResources == 0)
+                {
+                    if (alreadyResources > 0)
+                    {
+                        StatusText.Text = $"Already in this workspace · {alreadyResources:N0} resources";
+                        return;
+                    }
+                    throw new InvalidDataException("No new supported map assets found. Import extracted map folders or loose YMAP, YTYP, YBN, YDR, YDD and YTD files.");
+                }
+                dirty = true;
+                bool autoMerge = addedResources > 1 && (anyCollection || paths.Any(Directory.Exists));
+                BusyText.Text = StatusText.Text = autoMerge
+                    ? $"Building preview · merging {addedResources:N0} resources…"
+                    : $"Building preview · {addedResources:N0} resources loaded";
+                BusyIndeterminate.Visibility = Visibility.Visible;
+                BusyProgress.Visibility = Visibility.Collapsed;
+                await Task.Run(() =>
+                {
+                    workspace.Refresh(Progress);
+                    if (autoMerge) workspace.AutoMergeResources(Progress);
+                });
+                RefreshView(true);
+                StatusText.Text = autoMerge && workspace.LastAutomaticMerge != null
+                    ? $"Imported {addedResources:N0} resources · {workspace.LastAutomaticMerge.Summary}"
+                    : $"Imported {addedResources:N0} resources · {addedAssets:N0} files";
+            }
+            catch (Exception ex)
+            {
+                RefreshView(false);
+                StatusText.Text = "Operation stopped · " + ex.Message;
+                MessageBox.Show(this, ex.Message, "Seam — operation stopped", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                EndWork();
+            }
+        }
+
+        private sealed class ImportUnit
+        {
+            public List<string> Paths { get; } = new List<string>();
+            public string Label { get; set; }
+            public bool IsCollection { get; set; }
+        }
+
+        private static List<ImportUnit> BuildImportUnits(string[] paths)
+        {
+            // Keep the caller's order because the first source takes priority. A whole
+            // collection becomes one unit per resource so the UI can report progress
+            // after each one instead of waiting for every map to finish.
+            var units = new List<ImportUnit>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var fileGroups = new Dictionary<string, ImportUnit>(StringComparer.OrdinalIgnoreCase);
+            foreach (var input in paths)
+            {
+                var full = Path.GetFullPath(input);
+                if (Directory.Exists(full))
+                {
+                    var roots = MergeWorkspace.DiscoverResourceFolders(full);
+                    bool collection = roots.Count > 1 ||
+                        (roots.Count == 1 && !Path.GetFullPath(roots[0]).Equals(full, StringComparison.OrdinalIgnoreCase));
+                    foreach (var root in roots)
+                    {
+                        if (!seen.Add(root)) continue;
+                        var unit = new ImportUnit { Label = new DirectoryInfo(root).Name, IsCollection = collection };
+                        unit.Paths.Add(root);
+                        units.Add(unit);
+                    }
+                }
+                else if (File.Exists(full))
+                {
+                    string parent = Path.GetDirectoryName(full);
+                    if (!fileGroups.TryGetValue(parent, out var unit))
+                    {
+                        unit = new ImportUnit { Label = new DirectoryInfo(parent).Name + " files" };
+                        fileGroups[parent] = unit;
+                        units.Add(unit);
+                    }
+                    unit.Paths.Add(full);
+                }
+                else throw new FileNotFoundException("The selected path no longer exists.", full);
+            }
+            return units;
+        }
+
+        private void UpdateImportCounters(int resources, long entities)
+        {
+            // Keep this cheap and allocation-free: the overlay covers the source list,
+            // so only the visible counters change while resources are added one by one.
+            MapCount.Text = resources.ToString("N0");
+            EntityCount.Text = entities.ToString("N0");
+            SourcesEmpty.Visibility = workspace.Packs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private async void AddFolder_Click(object sender, RoutedEventArgs e)
         {
-            using (var dialog = new Forms.FolderBrowserDialog { Description = "Select a GTA V map resource or stream folder", ShowNewFolderButton = false })
+            using (var dialog = new Forms.FolderBrowserDialog { Description = "Select a map resource, or a category folder such as [mlos] containing several resources", ShowNewFolderButton = false })
                 if (dialog.ShowDialog() == Forms.DialogResult.OK) await Import(new[] { dialog.SelectedPath });
         }
 
@@ -340,8 +487,7 @@ namespace Seam
                 if (await Work("Exporting separate resources…", () => result = workspace.ExportSeparateResources(dialog.SelectedPath, Progress), false, false))
                 {
                     StatusText.Text = $"Exported {result.ResourcePaths.Count:N0} separate resources · {result.Files:N0} files";
-                    if (MessageBox.Show(this, "Export complete.\n\n" + string.Join("\n", result.ResourcePaths) + "\n\nOriginal .fxap, manifests and assets were retained. Open the output folder?", "Seam — export complete", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                        Process.Start(new ProcessStartInfo(result.Path) { UseShellExecute = true });
+                    new ExportCompleteWindow(result) { Owner = this }.ShowDialog();
                 }
             }
         }
@@ -400,7 +546,7 @@ namespace Seam
 
         private void Help_Click(object sender, RoutedEventArgs e)
         {
-            ShowText("A quick guide to Seam", "1. ADD YOUR MAPS\nAdd extracted GTA V Legacy map folders or loose stream assets. Include YMAP, YBN, YTYP, YDR/YDD and YTD files. The preview shows your imported source geometry; missing models use proxy bounds.\n\n2. SET SOURCE PRIORITY\nMove your preferred map to the top. The merger combines compatible file contents and uses this priority for conflicting definitions. Enable only the map sources you want in the output.\n\n3. AUTO MERGE\nClick Auto merge. Seam merges readable YMAP placements and YBN collision bounds. Encrypted or unsupported files are skipped by the decoder and copied unchanged, alongside all other assets. Merge results lists every skipped file. Results describe what was merged or preserved; no per-conflict picking is required.\n\n4. EXPORT\nChoose Export resources and select a destination folder. Each source gets its own folder named <original>_merged, preserving its original .fxap files, manifest, scripts, assets and subfolders. Only readable YMAP/YBN output changes. Shared collision filenames receive the same merged data in each resource. Use all output copies together instead of the originals. Export runs Auto merge if needed.\n\nDrag to orbit, right-drag to pan, scroll to zoom, or press Home to frame the source scene. Click geometry to inspect it. Save a .seam project to retain your source paths and priorities.\n\nCollision overlap alone does not prove an unwanted surface. The merger preserves distinct geometry rather than deleting whole overlapping components. It does not perform arbitrary mesh boolean subtraction. Read the operation report and test your map set in GTA V. Local scripts and supported manifest data are carried into the export. External @resource references still require their external resources. RPF archives must be extracted first.");
+            ShowText("A quick guide to Seam", "1. ADD YOUR MAPS\nAdd extracted GTA V Legacy map folders or loose stream assets. Include YMAP, YBN, YTYP, YDR/YDD and YTD files. You can also drop a whole collection folder such as [mlos]: Seam finds every resource inside it, keeps each one separate, and automatically merges only shared readable YMAP/YBN names. The preview shows your imported source geometry; missing models use proxy bounds.\n\n2. SET SOURCE PRIORITY\nMove your preferred map to the top. The merger combines compatible file contents and uses this priority for conflicting definitions. Enable only the map sources you want in the output.\n\n3. AUTO MERGE\nClick Auto merge. Seam merges readable YMAP placements and YBN collision bounds. Encrypted or unsupported files are skipped by the decoder and copied unchanged, alongside all other assets. Merge results lists every skipped file. Results describe what was merged or preserved; no per-conflict picking is required.\n\n4. EXPORT\nChoose Export resources and select a destination folder. Each source gets its own folder named <original>_merged, preserving its original .fxap files, manifest, scripts, assets and subfolders. Only readable YMAP/YBN output changes. Shared collision filenames receive the same merged data in each resource. Use all output copies together instead of the originals. Export runs Auto merge if needed.\n\nDrag to orbit, right-drag to pan, scroll to zoom, or press Home to frame the source scene. Click geometry to inspect it. Save a .seam project to retain your source paths and priorities.\n\nCollision overlap alone does not prove an unwanted surface. The merger preserves distinct geometry rather than deleting whole overlapping components. It does not perform arbitrary mesh boolean subtraction. Read the operation report and test your map set in GTA V. Local scripts and supported manifest data are carried into the export. External @resource references still require their external resources. RPF archives must be extracted first.");
         }
 
         private void ShowText(string title, string text)
