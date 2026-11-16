@@ -132,6 +132,7 @@ internal static class Program
         passed += AutomaticChecks.Run(directory);
         passed += YmapMergeChecks.Run(Path.Combine(directory, "ymap-auto"));
         passed += MapRepairChecks.Run(Path.Combine(directory, "map-repair"));
+        passed += MapOptimizerChecks.Run(Path.Combine(directory, "map-optimizer"));
         TextureEditorChecks.Run(directory, Assert);
         passed += ClothingChecks.Run(Path.Combine(directory, "clothing-pack"));
         passed += DictionaryMergeChecks.Run(Path.Combine(directory, "dictionary-auto"));

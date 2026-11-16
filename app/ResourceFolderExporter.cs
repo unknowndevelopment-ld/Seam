@@ -97,6 +97,8 @@ namespace Seam
                     Directory.CreateDirectory(destination);
                     foreach (var file in folder.Files)
                     {
+                        // Maps removed by the optimizer are not recreated in the copy.
+                        if (plan.RemovedOutputNames.Contains(StreamName(file))) continue;
                         string relative = RelativeResourcePath(folder.Root, file);
                         string target = System.IO.Path.Combine(destination, relative);
                         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target));
@@ -106,7 +108,7 @@ namespace Seam
                         result.Files++;
                     }
                     var applied = new List<object>();
-                    foreach (var output in plan.Outputs.Where(o => o.Data != null))
+                    foreach (var output in plan.Outputs.Where(o => o.Data != null && !o.Removed))
                     foreach (var source in output.Sources.Where(a => folder.Assets.Contains(a) && a.Error == null && (a.Extension == ".ymap" || a.Extension == ".ybn")))
                     {
                         if (!source.Name.Equals(output.Name, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("A merged map changed its streaming name: " + source.Name);

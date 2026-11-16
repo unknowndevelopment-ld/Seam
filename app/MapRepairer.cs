@@ -233,7 +233,7 @@ namespace Seam
 
         private static int Cell(double value)=>(int)Math.Floor(value/16);
         private static void Coverage(AutomaticMergePlan p,string detail)=>YmapLightMerger.Log(p,"Check coverage","Placement support",detail,0);
-        private static bool HasScripts(MapPack pack, Dictionary<MapPack,bool> cache)
+        internal static bool HasScripts(MapPack pack, Dictionary<MapPack,bool> cache)
         {
             if(pack==null || string.IsNullOrEmpty(pack.Root) || !Directory.Exists(pack.Root)) return false;
             if(!cache.TryGetValue(pack,out bool scripts)) cache[pack]=scripts=Directory.EnumerateFiles(pack.Root,"*.lua",SearchOption.AllDirectories)

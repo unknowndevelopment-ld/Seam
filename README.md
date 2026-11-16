@@ -23,11 +23,13 @@ Without a selected installation, map merging/fixing, clothing pack creation and 
 3. Inspect the source scene and processing report.
 4. Select **Export resources**.
 
+**Optimize…** adds safe cleanup to the automatic merge: duplicate placements, empty maps and an optional HD draw-distance cap. It runs after repairs, before the export snapshot, so both export modes inherit the same result. Source files are never modified. Parent maps, replacements, MLO/instanced maps, scripted resources and any map that cannot pass a lossless binary round trip keep their original output. Settings are saved with the project.
+
 A dropped container such as `[mlos]` or `[school]` is searched recursively. Every resource inside becomes an own source, including resources nested in grouping folders and packs without a manifest that still contain a `stream` folder. Large collections load one resource at a time with a determinate progress bar, so the window stays responsive. Dropping the same collection again is reported instead of duplicating sources.
 
 Each resource exports to its own `<original>_merged` folder. Readable YMAP/YBN data is combined where compatible. Original `.fxap` files, manifests, scripts, protected assets and relative paths remain with their resource. Input files remain unchanged. The completion summary lists every written resource folder and stays inside the screen; paths can be copied or the output folder opened.
 
-The engine resolves verified duplicates and compatible authored map, collision and light data. It repairs verifiable placement/light/bounds faults and reports uncertain floating props. Overlap alone does not establish a faulty collision; arbitrary intersecting interiors and floor geometry still require review in game. Protected assets are preserved rather than decrypted. Extract RPF archives before importing.
+The engine resolves verified duplicates and compatible authored map, collision and light data. It repairs verifiable placement/light/bounds faults and reports uncertain floating props. The optional optimizer additionally drops byte-identical standalone placements, empty maps and (when selected) long HD draw distances; only writable static maps are edited, and results and saved bytes are listed in Merge activity. Overlap alone does not establish a faulty collision; arbitrary intersecting interiors and floor geometry still require review in game. Protected assets are preserved rather than decrypted. Extract RPF archives before importing.
 
 ## Clothing Studio
 

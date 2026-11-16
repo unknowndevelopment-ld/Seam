@@ -20,6 +20,7 @@ namespace Seam
         public string Action { get; set; }
         public string RelativePath { get; set; }
         public string CopySourcePath { get; set; }
+        public bool Removed { get; set; }
     }
 
     public sealed class AutomaticMergePlan
@@ -29,6 +30,7 @@ namespace Seam
         public List<AutomaticMergeOutput> AuxiliaryFiles { get; } = new List<AutomaticMergeOutput>();
         public List<string> ManifestDirectives { get; } = new List<string>();
         public Dictionary<string, string> SourceFiles { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> RemovedOutputNames { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public int InputFiles { get; set; }
         public int InputMaps { get; set; }
         public int InputCollisions { get; set; }
@@ -41,13 +43,14 @@ namespace Seam
         public int RemovedPolygons { get; set; }
         public int MapRepairs { get; set; }
         public int MapChecks { get; set; }
+        public MapOptimizerReport Optimization { get; set; }
         public string Fingerprint { get; set; }
         public bool PreserveResourceFolders { get; set; }
         public int ResourceCount { get; set; }
         public string Summary => PreserveResourceFolders
             ? $"{InputFiles:N0} source assets · {ResourceCount:N0} separate resources · {MergedMaps:N0} YMAP merges · {MergedCollisions:N0} YBN merges" + RepairSummary
-            : $"{InputFiles:N0} source files → {Outputs.Count:N0} output files · {MergedMaps:N0} YMAP merges · {MergedCollisions:N0} YBN merges" + RepairSummary;
-        private string RepairSummary => MapRepairs == 0 && MapChecks == 0 ? "" : $" · {MapRepairs:N0} repairs · {MapChecks:N0} checks";
+            : $"{InputFiles:N0} source files → {Outputs.Count(o => !o.Removed):N0} output files · {MergedMaps:N0} YMAP merges · {MergedCollisions:N0} YBN merges" + RepairSummary;
+        private string RepairSummary => (MapRepairs == 0 && MapChecks == 0 ? "" : $" · {MapRepairs:N0} repairs · {MapChecks:N0} checks") + (Optimization?.Short ?? "");
     }
 
     public sealed partial class MergeWorkspace

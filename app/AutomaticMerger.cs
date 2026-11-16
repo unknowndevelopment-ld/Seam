@@ -51,9 +51,11 @@ namespace Seam
             PreserveOtherAssets(assets.Except(mergeable).ToList(), plan, preserveResources);
             progress?.Invoke("Checking placements, lights and map bounds…");
             MapRepairer.Apply(plan, assets, progress);
+            progress?.Invoke("Optimizing merged maps…");
+            plan.Optimization = MapOptimizer.Apply(plan, assets, Optimizer, progress);
             if (preserveResources) SnapshotResourceFolders(plan);
             else ResourceManifestMerger.Include(Packs.Where(p => p.Enabled).ToList(), plan, progress);
-            plan.Operations.Insert(0, new MergeOperation { Kind = "Automatic merge", Title = preserveResources ? "Separate resource copies" : "Combined map resource", Detail = plan.Summary + (preserveResources ? ". Each source exports separately with _merged; manifests, .fxap metadata and other files stay unchanged." : ". Named interiors and streaming replacements retain the names required by GTA."), Count = plan.Outputs.Count });
+            plan.Operations.Insert(0, new MergeOperation { Kind = "Automatic merge", Title = preserveResources ? "Separate resource copies" : "Combined map resource", Detail = plan.Summary + (preserveResources ? ". Each source exports separately with _merged; manifests, .fxap metadata and other files stay unchanged." : ". Named interiors and streaming replacements retain the names required by GTA."), Count = plan.Outputs.Count(o => !o.Removed) });
             var duplicate = plan.Outputs.GroupBy(o => o.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
             if (duplicate != null) throw new InvalidDataException("Merge produced a duplicate streamed filename: " + duplicate.Key);
             foreach (var output in plan.Outputs)
@@ -112,6 +114,7 @@ namespace Seam
                 Directory.CreateDirectory(System.IO.Path.Combine(stage, "stream"));
                 foreach (var output in plan.Outputs.Concat(plan.AuxiliaryFiles))
                 {
+                    if (output.Removed) continue;
                     var relative = output.RelativePath ?? "stream/" + output.Name;
                     var target = System.IO.Path.GetFullPath(System.IO.Path.Combine(stage, relative.Replace('/', System.IO.Path.DirectorySeparatorChar)));
                     if (!target.StartsWith(stage + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Output path escapes its resource: " + relative);
@@ -132,16 +135,19 @@ namespace Seam
                 File.WriteAllText(System.IO.Path.Combine(stage, "fxmanifest.lua"), manifest.ToString(), new UTF8Encoding(false));
                 File.WriteAllText(System.IO.Path.Combine(stage, "seam-merge-report.json"), Json().Serialize(new
                 {
-                    application = "Seam 1.1.1", exportedUtc = DateTime.UtcNow.ToString("o"), mode = "automatic-ymap-ybn-only",
+                    application = "Seam " + typeof(MergeWorkspace).Assembly.GetName().Version.ToString(3), exportedUtc = DateTime.UtcNow.ToString("o"), mode = "automatic-ymap-ybn-only",
                     summary = plan.Summary, plan.InputFiles, plan.InputMaps, plan.InputCollisions, plan.MergedMaps, plan.MergedCollisions,
                     plan.DuplicateEntities, plan.DuplicateBounds, plan.DuplicateFiles, plan.RemovedTriangles, plan.RemovedPolygons,
+                    optimization = plan.Optimization,
                     priority = Packs.Where(p => p.Enabled).Select(p => p.Name).ToArray(),
                     operations = plan.Operations.ToArray(),
-                    outputs = plan.Outputs.Select(o => new { o.Name, o.Action, sources = o.Sources.Select(s => new { pack = s.Pack.Name, file = s.Name }).ToArray() }).ToArray(),
+                    outputs = plan.Outputs.Where(o => !o.Removed).Select(o => new { o.Name, o.Action, sources = o.Sources.Select(s => new { pack = s.Pack.Name, file = s.Name }).ToArray() }).ToArray(),
                     sourceHashes = plan.SourceFiles.ToArray()
                 }), new UTF8Encoding(false));
                 File.WriteAllText(System.IO.Path.Combine(stage, "README.txt"),
-                    "Automatically merged by Seam.\r\n\r\nUse this resource in place of the original map resources; disable their original copies. Check seam-merge-report.json for every automatic operation.\r\n\r\nNamed MLO maps, LOD chains and collision tiles keep their streaming names. Only readable YMAP placements and YBN collision resources are content-merged. All other assets, including encrypted or unsupported files, are copied unchanged; protected files are not decrypted. Shared base-game collision patches can combine removed surfaces without a pristine base-game baseline; inspect those operations and test in GTA V. Distinct overlapping surfaces are retained unless verified duplicate geometry is found. This does not perform general mesh boolean subtraction.\r\n\r\nLocal scripts and declared manifest data are included. External references such as @OtherResource/path.lua still require the original external resource.\r\n", new UTF8Encoding(false));
+                    "Automatically merged by Seam.\r\n\r\nUse this resource in place of the original map resources; disable their original copies. Check seam-merge-report.json for every automatic operation.\r\n\r\n" +
+                    (plan.Optimization?.Applied == true ? "The map optimizer was enabled: " + plan.Optimization.Summary + ". Source files were not modified.\r\n\r\n" : "") +
+                    "Named MLO maps, LOD chains and collision tiles keep their streaming names. Only readable YMAP placements and YBN collision resources are content-merged. All other assets, including encrypted or unsupported files, are copied unchanged; protected files are not decrypted. Shared base-game collision patches can combine removed surfaces without a pristine base-game baseline; inspect those operations and test in GTA V. Distinct overlapping surfaces are retained unless verified duplicate geometry is found. This does not perform general mesh boolean subtraction.\r\n\r\nLocal scripts and declared manifest data are included. External references such as @OtherResource/path.lua still require the original external resource.\r\n", new UTF8Encoding(false));
                 foreach (var source in plan.SourceFiles)
                     if (!File.Exists(source.Key) || HashFile(source.Key) != source.Value) throw new IOException("Source changed during export: " + source.Key);
                 CommitExport(stage, final);

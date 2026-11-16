@@ -41,6 +41,8 @@
         <StackPanel MinWidth="68"><TextBlock x:Name="OutputCount" Text="0" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/><TextBlock Text="Outputs" FontSize="10" Foreground="{StaticResource Subtle}" Margin="0,3,0,0"/></StackPanel>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="OptimizeButton" Content="Optimize…" IsEnabled="False" Click="Optimize_Click" Margin="0,0,8,0" Padding="15,10"
+                AutomationProperties.Name="Map optimizer"/>
         <Button x:Name="AutoMergeButton" Content="Auto merge" Style="{StaticResource Primary}" IsEnabled="False" Click="AutoMerge_Click" Padding="21,10"/>
         <Button x:Name="ExportButton" Content="Export resources  ↗" IsEnabled="False" Click="Export_Click" Margin="8,0,0,0" Padding="17,10"/>
       </StackPanel>

@@ -34,6 +34,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Window behavior checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\automatic-ui-smoke.ps1' }"
         if ($LASTEXITCODE -ne 0) { throw 'Automatic merger UI checks failed.' }
+        & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\optimizer-ui-smoke.ps1' }"
+        if ($LASTEXITCODE -ne 0) { throw 'Map optimizer UI checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\collection-load-smoke.ps1' }"
         if ($LASTEXITCODE -ne 0) { throw 'Collection loading UI checks failed.' }
         & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "& { & '.\tests\export-dialog-smoke.ps1' }"

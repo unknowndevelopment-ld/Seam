@@ -1,0 +1,73 @@
+<Window x:Class="Seam.MapOptimizerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seam — map optimizer"
+        Width="588" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" UseLayoutRounding="True">
+  <Grid Margin="26,22,26,0">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <TextBlock Text="Map optimizer" FontSize="21" FontWeight="SemiBold"/>
+      <TextBlock Text="Cleanup runs inside Auto merge, after repairs and before export. Source files are never modified."
+                 Margin="0,7,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="19" Foreground="{StaticResource Muted}"/>
+
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="16,15,16,16" Margin="0,18,0,0">
+        <StackPanel>
+          <CheckBox x:Name="EnabledBox" Content="Use the optimizer during Auto merge" Foreground="{StaticResource Text}" FontWeight="SemiBold"
+                    Click="Enabled_Click" AutomationProperties.Name="Use the optimizer during Auto merge"/>
+          <TextBlock Text="Leave this off to export the merge exactly as built." Margin="24,6,0,0" FontSize="11" Foreground="{StaticResource Subtle}"/>
+
+          <Border Height="1" Background="{StaticResource Line}" Margin="0,15,0,13"/>
+
+          <CheckBox x:Name="DuplicatesBox" Content="Remove duplicate placements" Foreground="{StaticResource Text}"
+                    AutomationProperties.Name="Remove duplicate placements"/>
+          <TextBlock Text="Drops byte-identical standalone props inside the same map. Linked and replacement entities are never touched."
+                     Margin="24,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="17" Foreground="{StaticResource Muted}"/>
+
+          <CheckBox x:Name="EmptyBox" Content="Drop empty maps" Foreground="{StaticResource Text}" Margin="0,14,0,0"
+                    AutomationProperties.Name="Drop empty maps"/>
+          <TextBlock Text="Skips YMAP files that contain no placements or map metadata once cleanup is done."
+                     Margin="24,5,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="17" Foreground="{StaticResource Muted}"/>
+
+          <CheckBox x:Name="DrawDistanceBox" Content="Limit draw distance" Foreground="{StaticResource Text}" Margin="0,14,0,0"
+                    Click="DrawDistance_Click" AutomationProperties.Name="Limit draw distance"/>
+          <Grid Margin="24,7,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Caps HD props above this distance. LOD parents keep their original range."
+                       TextWrapping="Wrap" FontSize="11" LineHeight="17" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBox x:Name="DrawDistanceText" Grid.Column="1" Width="78" Padding="10,6" TextAlignment="Right" FontSize="12"
+                     AutomationProperties.Name="Maximum draw distance"/>
+            <TextBlock Grid.Column="2" Text="m" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <TextBlock x:Name="HintText" Margin="0,13,0,0" TextWrapping="Wrap" FontSize="11" LineHeight="17" Foreground="{StaticResource Subtle}"
+                 Text="Base-game, replacement, occlusion and scripted maps keep their original output. Every rewritten map must pass a lossless XML-to-binary round trip or its merge bytes are retained."/>
+    </StackPanel>
+
+    <Grid Grid.Row="1" Margin="0,18,0,20">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock x:Name="ValidationText" Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="11"
+                 LineHeight="17" Foreground="#E6AE75" Margin="0,0,16,0"/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="SaveButton" Content="Save settings" Style="{StaticResource Quiet}" Padding="12,9" Click="Save_Click"
+                AutomationProperties.Name="Save optimizer settings"/>
+        <Button Content="Cancel" MinWidth="82" Margin="6,0,8,0" IsCancel="True"/>
+        <Button x:Name="MergeButton" Content="Optimize and merge" Style="{StaticResource Primary}" IsDefault="True" Click="Merge_Click"
+                AutomationProperties.Name="Optimize and merge"/>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

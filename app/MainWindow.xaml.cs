@@ -201,7 +201,10 @@ namespace Seam
             MapCount.Text = enabled.Length.ToString("N0");
             EntityCount.Text = enabled.Sum(p => p.EntityCount).ToString("N0");
             OutputCount.Text = (plan?.ResourceCount ?? 0).ToString("N0");
-            AutoMergeButton.IsEnabled = ExportButton.IsEnabled = hasInputs;
+            AutoMergeButton.IsEnabled = ExportButton.IsEnabled = OptimizeButton.IsEnabled = hasInputs;
+            OptimizeButton.ToolTip = workspace.Optimizer.Enabled
+                ? "Map optimizer is on · duplicate placements, empty maps and draw distance are cleaned during Auto merge"
+                : "Choose cleanup rules for duplicate placements, empty maps and draw distance";
             ExportButton.ToolTip = "Export each original resource separately with _merged, keeping its own .fxap and manifest";
             AutoMergeButton.ToolTip = "Merge YMAP/YBN files and repair verified prop, light and map-bound faults. Uncertain placements are reported; protected assets stay unchanged.";
             UpdatePreviewAvailability();
@@ -453,6 +456,19 @@ namespace Seam
                 StatusText.Text = workspace.LastAutomaticMerge.Summary;
         }
 
+        private async void Optimize_Click(object sender, RoutedEventArgs e)
+        {
+            if (busy) return;
+            var dialog = new MapOptimizerWindow(workspace.Optimizer) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+            workspace.Optimizer = dialog.Options;
+            dirty = true;
+            RefreshView(false);
+            if (!dialog.MergeRequested) { StatusText.Text = dialog.Options.Enabled ? "Optimizer settings saved · applies on the next merge" : "Optimizer turned off"; return; }
+            if (await Work("Optimizing and merging maps…", () => workspace.AutoMergeResources(Progress)))
+                StatusText.Text = workspace.LastAutomaticMerge.Summary;
+        }
+
         private void ResultList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!(ResultList.SelectedItem is MergeOperation operation)) { ResultDetailCard.Visibility = Visibility.Collapsed; return; }
@@ -546,7 +562,7 @@ namespace Seam
 
         private void Help_Click(object sender, RoutedEventArgs e)
         {
-            ShowText("A quick guide to Seam", "1. ADD YOUR MAPS\nAdd extracted GTA V Legacy map folders or loose stream assets. Include YMAP, YBN, YTYP, YDR/YDD and YTD files. You can also drop a whole collection folder such as [mlos]: Seam finds every resource inside it, keeps each one separate, and automatically merges only shared readable YMAP/YBN names. The preview shows your imported source geometry; missing models use proxy bounds.\n\n2. SET SOURCE PRIORITY\nMove your preferred map to the top. The merger combines compatible file contents and uses this priority for conflicting definitions. Enable only the map sources you want in the output.\n\n3. AUTO MERGE\nClick Auto merge. Seam merges readable YMAP placements and YBN collision bounds. Encrypted or unsupported files are skipped by the decoder and copied unchanged, alongside all other assets. Merge results lists every skipped file. Results describe what was merged or preserved; no per-conflict picking is required.\n\n4. EXPORT\nChoose Export resources and select a destination folder. Each source gets its own folder named <original>_merged, preserving its original .fxap files, manifest, scripts, assets and subfolders. Only readable YMAP/YBN output changes. Shared collision filenames receive the same merged data in each resource. Use all output copies together instead of the originals. Export runs Auto merge if needed.\n\nDrag to orbit, right-drag to pan, scroll to zoom, or press Home to frame the source scene. Click geometry to inspect it. Save a .seam project to retain your source paths and priorities.\n\nCollision overlap alone does not prove an unwanted surface. The merger preserves distinct geometry rather than deleting whole overlapping components. It does not perform arbitrary mesh boolean subtraction. Read the operation report and test your map set in GTA V. Local scripts and supported manifest data are carried into the export. External @resource references still require their external resources. RPF archives must be extracted first.");
+            ShowText("A quick guide to Seam", "1. ADD YOUR MAPS\nAdd extracted GTA V Legacy map folders or loose stream assets. Include YMAP, YBN, YTYP, YDR/YDD and YTD files. You can also drop a whole collection folder such as [mlos]: Seam finds every resource inside it, keeps each one separate, and automatically merges only shared readable YMAP/YBN names. The preview shows your imported source geometry; missing models use proxy bounds.\n\n2. SET SOURCE PRIORITY\nMove your preferred map to the top. The merger combines compatible file contents and uses this priority for conflicting definitions. Enable only the map sources you want in the output.\n\n3. AUTO MERGE\nClick Auto merge. Seam merges readable YMAP placements and YBN collision bounds. Encrypted or unsupported files are skipped by the decoder and copied unchanged, alongside all other assets. Merge results lists every skipped file. Results describe what was merged or preserved; no per-conflict picking is required. Optimize adds safe cleanup to the same pass: duplicate placements, empty maps and an optional draw-distance cap. Enabled rules are saved with the project, and linked, replacement, occlusion or scripted maps keep their original output.\n\n4. EXPORT\nChoose Export resources and select a destination folder. Each source gets its own folder named <original>_merged, preserving its original .fxap files, manifest, scripts, assets and subfolders. Only readable YMAP/YBN output changes. Shared collision filenames receive the same merged data in each resource. Use all output copies together instead of the originals. Export runs Auto merge if needed.\n\nDrag to orbit, right-drag to pan, scroll to zoom, or press Home to frame the source scene. Click geometry to inspect it. Save a .seam project to retain your source paths and priorities.\n\nCollision overlap alone does not prove an unwanted surface. The merger preserves distinct geometry rather than deleting whole overlapping components. It does not perform arbitrary mesh boolean subtraction. Read the operation report and test your map set in GTA V. Local scripts and supported manifest data are carried into the export. External @resource references still require their external resources. RPF archives must be extracted first.");
         }
 
         private void ShowText(string title, string text)

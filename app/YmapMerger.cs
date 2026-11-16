@@ -328,7 +328,7 @@ namespace Seam
             return doc;
         }
 
-        private static bool HasData(XmlElement element)
+        internal static bool HasData(XmlElement element)
         {
             if (element == null) return false;
             if (element.ChildNodes.OfType<XmlElement>().Any(HasData)) return true;

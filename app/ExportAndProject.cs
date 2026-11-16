@@ -207,7 +207,8 @@ namespace Seam
             {
                 Version = 1,
                 Packs = Packs.Select(p => new ProjectPack { Name = p.Name, Root = p.Root, Color = p.Color, Enabled = p.Enabled, Assets = p.Assets.Select(a => new ProjectAsset { Path = a.Path, Digest = a.Digest, Excluded = a.Excluded, Entities = a.Entities.Where(e => e.Excluded).Select(e => e.Index).ToArray(), Bounds = a.Collisions.Where(c => c.Excluded).Select(c => c.Index).ToArray() }).ToArray() }).ToArray(),
-                Decisions = decisions.ToDictionary(k => k.Key, v => v.Value)
+                Decisions = decisions.ToDictionary(k => k.Key, v => v.Value),
+                Optimizer = Optimizer?.Copy()
             };
             var full = System.IO.Path.GetFullPath(path);
             var temp = full + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -225,6 +226,11 @@ namespace Seam
             var data = Json().Deserialize<ProjectFile>(File.ReadAllText(path));
             if (data?.Version != 1 || data.Packs == null) throw new InvalidDataException("Unsupported or invalid Seam project.");
             var result = new MergeWorkspace { BuildPreview = buildPreview };
+            if (data.Optimizer != null)
+            {
+                result.Optimizer = data.Optimizer;
+                if (!(result.Optimizer.MaxDrawDistance > 0) || float.IsInfinity(result.Optimizer.MaxDrawDistance)) result.Optimizer.MaxDrawDistance = 500f;
+            }
             foreach (var stored in data.Packs)
             {
                 if (stored.Assets == null || stored.Assets.Length == 0) continue;
@@ -254,6 +260,7 @@ namespace Seam
         public int Version { get; set; }
         public ProjectPack[] Packs { get; set; }
         public Dictionary<string, string> Decisions { get; set; }
+        public MapOptimizerOptions Optimizer { get; set; }
     }
     public sealed class ProjectPack
     {
